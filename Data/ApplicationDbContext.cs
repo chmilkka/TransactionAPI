@@ -31,7 +31,8 @@ namespace TransactionAPI.Data
 
             modelBuilder.Entity<Transaction>()
                 .Property(t => t.TransactionDate)
-                .HasColumnName("transaction_date");
+                .HasColumnName("transaction_date")
+                .HasColumnType("datetime");
 
             modelBuilder.Entity<Transaction>()
                 .Property(t => t.ClientLocation)
