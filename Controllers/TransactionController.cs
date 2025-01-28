@@ -18,16 +18,9 @@ namespace TransactionAPI.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> ImportTransactionsFromCsv(IFormFile file)
         {
-            try
-            {
-                await transactionService.ImportTransactionsAsync(file);
+            await transactionService.ImportTransactionsAsync(file);
 
-                return Ok("Transactions imported successfully.");
-            }
-            catch (Exception ex)
-            {
-                return BadRequest($"Error processing file: {ex.Message}");
-            }
+            return Ok("Transactions imported successfully.");
         }
     }
 }
