@@ -76,10 +76,10 @@ namespace TransactionAPI.Services
             using (var stream = new StreamReader(file.OpenReadStream()))
             using (var csv = new CsvReader(stream, CultureInfo.InvariantCulture))
             {
-                csv.Read();
+                await csv.ReadAsync();
                 csv.ReadHeader();
 
-                while (csv.Read())
+                while (await csv.ReadAsync())
                 {
                     var transaction = new Transaction
                     {
