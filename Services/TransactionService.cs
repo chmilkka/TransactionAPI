@@ -62,7 +62,7 @@ namespace TransactionAPI.Services
                                     amount = @Amount,  
                                     transaction_date = @TransactionDate,
                                     client_location = @ClientLocation
-                                    WHERE transaction_id = @TransactionId";
+                                    WHERE transaction_id = @Id";
 
                         await connection.ExecuteAsync(updateQuery, transaction);         
                     }
