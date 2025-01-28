@@ -7,6 +7,7 @@ using System.Formats.Asn1;
 using System.Globalization;
 using TransactionAPI.Interfaces;
 using TransactionAPI.Models;
+using TransactionAPI.Services;
 
 namespace TransactionAPI.Controllers
 {
@@ -21,6 +22,15 @@ namespace TransactionAPI.Controllers
             await transactionService.ImportTransactionsAsync(file);
 
             return Ok("Transactions imported successfully.");
+        }
+
+        [HttpGet("export-transaction/{transactionId}")]
+        [Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
+        public async Task<IActionResult> ExportTransactionToExcel(string transactionId)
+        {
+            var excelFile = await transactionService.ExportTransactionToExcelAsync(transactionId);            
+
+            return File(excelFile, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "transaction.xlsx");
         }
     }
 }
