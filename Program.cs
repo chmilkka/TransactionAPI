@@ -32,10 +32,11 @@ namespace TransactionAPI
                 app.UseSwaggerUI();
             }
 
+            app.UseMiddleware<Middlewares.ExceptionHandlingMiddleware>();
+
             app.UseHttpsRedirection();
 
             app.UseAuthorization();
-
 
             app.MapControllers();
 
