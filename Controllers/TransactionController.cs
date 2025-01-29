@@ -39,5 +39,12 @@ namespace TransactionAPI.Controllers
             var transactions = await transactionService.GetJanuaryTransactionsAsync();
             return Ok(transactions);
         }
+
+        [HttpGet("range")]
+        public async Task<IActionResult> GetTransactionsByDateRange([FromQuery] DateTime startDate, [FromQuery] DateTime endDate)
+        {         
+            var transactions = await transactionService.GetTransactionsByDateRangeAsync(startDate, endDate);
+            return Ok(transactions);
+        }
     }
 }
