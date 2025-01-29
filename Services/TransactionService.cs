@@ -5,6 +5,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.IdentityModel.Tokens;
 using OfficeOpenXml;
 using System.Globalization;
+using TransactionAPI.Exceptions;
 using TransactionAPI.Interfaces;
 using TransactionAPI.Models;
 
@@ -78,28 +79,55 @@ namespace TransactionAPI.Services
             {
                 await connection.OpenAsync();
                 var query = @"
-                SELECT name, amount, 
-                FORMAT (transaction_date, 'yyyy-MM-dd HH:mm:ss') AS transaction_date
+                SELECT 
+                    transaction_id AS Id, 
+                    name AS Name, 
+                    email AS Email, 
+                    amount AS Amount, 
+                    transaction_date AS TransactionDate, 
+                    client_location AS ClientLocation
                 FROM Transactions 
                 WHERE transaction_id = @Id;";
 
-                var existingTransaction = await connection.QueryFirstOrDefaultAsync<dynamic>(query, new { Id = transactionId });
+                var existingTransaction = await connection.QueryFirstOrDefaultAsync<Transaction>(query, new { Id = transactionId });
+
                 if (existingTransaction == null)
                 {
-                    return null;
+                    throw new TransactionNotFoundException();
                 }
-
-                var transaction = new Transaction
-                {
-                    Name = existingTransaction.name,
-                    Amount = Convert.ToDecimal(existingTransaction.amount),
-                    TransactionDate = DateTime.Parse(existingTransaction.transaction_date)
-                };
-
-                var excelDocumentBytes = ConvertTransactionToExcel(transaction);
+            
+                var excelDocumentBytes = ConvertTransactionToExcel(existingTransaction);
 
                 return excelDocumentBytes;
             }
+        }
+
+        public async Task<IEnumerable<Transaction>>GetJanuaryTransactionsAsync()
+        {
+            using var connection = new SqlConnection(_connectionString);
+            {
+                await connection.OpenAsync();
+
+                var query = @"
+                SELECT 
+                    transaction_id AS Id, 
+                    name AS Name, 
+                    email AS Email, 
+                    amount AS Amount, 
+                    transaction_date AS TransactionDate, 
+                    client_location AS ClientLocation
+                FROM Transactions
+                WHERE transaction_date >= @StartDate 
+                      AND transaction_date < @EndDate";
+
+                var parameters = new
+                {
+                    StartDate = new DateTime(2024, 1, 1, 0, 0, 0),
+                    EndDate = new DateTime(2024, 2, 1, 0, 0, 0)
+                };
+
+                return await connection.QueryAsync<Transaction>(query, parameters);
+            }           
         }
 
         private byte[] ConvertTransactionToExcel(Transaction transaction)

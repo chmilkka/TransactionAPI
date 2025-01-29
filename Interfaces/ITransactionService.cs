@@ -6,5 +6,6 @@ namespace TransactionAPI.Interfaces
     {
         Task ImportTransactionsAsync(IFormFile file);
         Task<byte[]> ExportTransactionToExcelAsync(string transactionId);
+        Task<IEnumerable<Transaction>> GetJanuaryTransactionsAsync();
     }
 }
