@@ -32,5 +32,12 @@ namespace TransactionAPI.Controllers
 
             return File(excelFile, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "transaction.xlsx");
         }
+
+        [HttpGet("transactions/january-2024")]
+        public async Task<IActionResult> GetJanuaryTransactions()
+        {
+            var transactions = await transactionService.GetJanuaryTransactionsAsync();
+            return Ok(transactions);
+        }
     }
 }
