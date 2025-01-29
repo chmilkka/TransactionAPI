@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using OfficeOpenXml;
 using System.Globalization;
 using TransactionAPI.Exceptions;
+using TransactionAPI.Extensions;
 using TransactionAPI.Interfaces;
 using TransactionAPI.Models;
 
@@ -36,21 +37,33 @@ namespace TransactionAPI.Services
 
                 foreach (var transaction in transactions)
                 {
-                    var existingTransaction = await connection.QueryFirstOrDefaultAsync<Transaction>(
-                    @"SELECT transaction_id AS Id, 
-                             name AS Name, 
-                             email AS Email, 
-                             amount AS Amount, 
-                             transaction_date AS TransactionDate, 
-                             client_location AS ClientLocation
-                      FROM Transactions 
-                      WHERE transaction_id = @Id",
-                    new { Id = transaction.Id });
+                    var findTransactionByIdQuery = @"
+                    SELECT transaction_id AS Id, 
+                            name AS Name, 
+                            email AS Email, 
+                            amount AS Amount, 
+                            transaction_date AS TransactionDate, 
+                            client_location AS ClientLocation
+                    FROM Transactions 
+                    WHERE transaction_id = @Id";
+
+                    var insertQuery = @"
+                    INSERT INTO Transactions (transaction_id, name, email, amount, transaction_date, client_location)
+                    VALUES (@Id, @Name, @Email, @Amount, @TransactionDate, @ClientLocation)";
+
+                    var updateQuery = @"
+                    UPDATE Transactions 
+                    SET name = @Name,
+                        email = @Email, 
+                        amount = @Amount,  
+                        transaction_date = @TransactionDate,
+                        client_location = @ClientLocation
+                    WHERE transaction_id = @Id";
+
+                    var existingTransaction = await connection.QueryFirstOrDefaultAsync<Transaction>(findTransactionByIdQuery, new { Id = transaction.Id });
 
                     if (existingTransaction == null)
                     {
-                        var insertQuery = @"INSERT INTO Transactions (transaction_id, name, email, amount, transaction_date, client_location)
-                                    VALUES (@Id, @Name, @Email, @Amount, @TransactionDate, @ClientLocation)";
                         await connection.ExecuteAsync(insertQuery, transaction);
                     }
                     else if (existingTransaction.Name != transaction.Name ||
@@ -58,15 +71,7 @@ namespace TransactionAPI.Services
                         existingTransaction.Amount != transaction.Amount ||
                         existingTransaction.TransactionDate != transaction.TransactionDate ||
                         existingTransaction.ClientLocation != transaction.ClientLocation)
-                    {
-                        var updateQuery = @"UPDATE Transactions 
-                                    SET name = @Name,
-                                    email = @Email, 
-                                    amount = @Amount,  
-                                    transaction_date = @TransactionDate,
-                                    client_location = @ClientLocation
-                                    WHERE transaction_id = @Id";
-
+                    {                      
                         await connection.ExecuteAsync(updateQuery, transaction);
                     }
                 }
@@ -78,6 +83,7 @@ namespace TransactionAPI.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
+
                 var query = @"
                 SELECT 
                     transaction_id AS Id, 
@@ -118,7 +124,7 @@ namespace TransactionAPI.Services
                     client_location AS ClientLocation
                 FROM Transactions
                 WHERE transaction_date >= @StartDate 
-                      AND transaction_date < @EndDate";
+                    AND transaction_date <= @EndDate";
 
                 var parameters = new
                 {
@@ -128,6 +134,29 @@ namespace TransactionAPI.Services
 
                 return await connection.QueryAsync<Transaction>(query, parameters);
             }           
+        }
+
+        public async Task<IEnumerable<Transaction>> GetTransactionsByDateRangeAsync(DateTime requestStartDate, DateTime requestEndDate)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            {
+                await connection.OpenAsync();
+
+                var query = @"
+                SELECT 
+                    transaction_id AS Id, 
+                    name AS Name, 
+                    email AS Email, 
+                    amount AS Amount, 
+                    transaction_date AS TransactionDate, 
+                    client_location AS ClientLocation
+                FROM Transactions 
+                WHERE 
+                    FORMAT(transaction_date, 'yyyy-MM-dd HH:mm:ss') >= @StartDate 
+                    AND FORMAT(transaction_date, 'yyyy-MM-dd HH:mm:ss') <= @EndDate;";
+
+                return await connection.QueryAsync<Transaction>(query, new { StartDate = requestStartDate.ToDatabaseDateTimeFormat(), EndDate = requestEndDate.ToDatabaseDateTimeFormat() });
+            }              
         }
 
         private byte[] ConvertTransactionToExcel(Transaction transaction)
@@ -150,6 +179,7 @@ namespace TransactionAPI.Services
 
             return memoryStream.ToArray();
         }
+
 
         private async Task<List<Transaction>> ParseCsvFileAsync(IFormFile file)
         {
