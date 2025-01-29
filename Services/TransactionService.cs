@@ -1,10 +1,5 @@
-﻿using CsvHelper;
-using CsvHelper.Configuration;
-using Dapper;
+﻿using Dapper;
 using Microsoft.Data.SqlClient;
-using Microsoft.IdentityModel.Tokens;
-using OfficeOpenXml;
-using System.Globalization;
 using TransactionAPI.Exceptions;
 using TransactionAPI.Extensions;
 using TransactionAPI.Interfaces;
@@ -15,11 +10,14 @@ namespace TransactionAPI.Services
     public class TransactionService : ITransactionService
     {
         private readonly string _connectionString;
+        private readonly IParseCsvService _parseCsvService;
+        private readonly IConvertToExcelService _convertToExcelService;
 
-        decimal a = 103243.13m;
-        public TransactionService(IConfiguration configuration)
+        public TransactionService(IConfiguration configuration, IParseCsvService parseCsvService, IConvertToExcelService convertToExcelService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _parseCsvService = parseCsvService;
+            _convertToExcelService = convertToExcelService;
         }
 
         public async Task ImportTransactionsAsync(IFormFile file)
@@ -29,7 +27,7 @@ namespace TransactionAPI.Services
                 throw new ArgumentNullException("No file uploaded.");
             }
 
-            var transactions = await ParseCsvFileAsync(file);
+            var transactions = await _parseCsvService.ParseCsvFileAsync(file);
 
             using (var connection = new SqlConnection(_connectionString))
             {
@@ -102,7 +100,7 @@ namespace TransactionAPI.Services
                     throw new TransactionNotFoundException();
                 }
             
-                var excelDocumentBytes = ConvertTransactionToExcel(existingTransaction);
+                var excelDocumentBytes = _convertToExcelService.ConvertTransactionToExcel(existingTransaction);
 
                 return excelDocumentBytes;
             }
@@ -157,56 +155,6 @@ namespace TransactionAPI.Services
 
                 return await connection.QueryAsync<Transaction>(query, new { StartDate = requestStartDate.ToDatabaseDateTimeFormat(), EndDate = requestEndDate.ToDatabaseDateTimeFormat() });
             }              
-        }
-
-        private byte[] ConvertTransactionToExcel(Transaction transaction)
-        {
-            var memoryStream = new MemoryStream();
-            var package = new ExcelPackage();
-
-            var worksheet = package.Workbook.Worksheets.Add("Transaction");
-
-            worksheet.Cells[1, 1].Value = "Name";
-            worksheet.Cells[1, 2].Value = "Amount";
-            worksheet.Cells[1, 3].Value = "Transaction Date";
-
-            worksheet.Cells[2, 1].Value = transaction.Name;
-            worksheet.Cells[2, 2].Value = $"${transaction.Amount:F2}";
-            worksheet.Cells[2, 3].Value = transaction.TransactionDate.ToString("yyyy-MM-dd HH:mm:ss");
-
-            package.SaveAs(memoryStream);
-            memoryStream.Position = 0;
-
-            return memoryStream.ToArray();
-        }
-
-
-        private async Task<List<Transaction>> ParseCsvFileAsync(IFormFile file)
-        {
-            var transactions = new List<Transaction>();
-            using (var stream = new StreamReader(file.OpenReadStream()))
-            using (var csv = new CsvReader(stream, CultureInfo.InvariantCulture))
-            {
-                await csv.ReadAsync();
-                csv.ReadHeader();
-
-                while (await csv.ReadAsync())
-                {
-                    var transaction = new Transaction
-                    {
-                        Id = csv.GetField<string>("transaction_id"),
-                        Name = csv.GetField<string>("name"),
-                        Email = csv.GetField<string>("email"),
-                        Amount = Convert.ToDecimal(csv.GetField<string>("amount").Replace("$", "").Trim(), CultureInfo.InvariantCulture),
-                        TransactionDate = csv.GetField<DateTime>("transaction_date"),
-                        ClientLocation = csv.GetField<string>("client_location")
-                    };
-
-                    transactions.Add(transaction);
-                }
-            }
-
-            return transactions;
         }
     }
 }

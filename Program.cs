@@ -20,6 +20,8 @@ namespace TransactionAPI
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             builder.Services.AddScoped<ITransactionService, TransactionService>();
+            builder.Services.AddScoped<IParseCsvService, ParseCsvService>();
+            builder.Services.AddScoped<IConvertToExcelService, ConvertToExcelService>();
 
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
