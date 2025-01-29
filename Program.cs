@@ -22,6 +22,8 @@ namespace TransactionAPI
             builder.Services.AddScoped<ITransactionService, TransactionService>();
             builder.Services.AddScoped<IParseCsvService, ParseCsvService>();
             builder.Services.AddScoped<IConvertToExcelService, ConvertToExcelService>();
+            builder.Services.AddScoped<ITimeZoneService, TimeZoneService>();
+
 
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

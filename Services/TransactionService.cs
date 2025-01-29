@@ -12,12 +12,14 @@ namespace TransactionAPI.Services
         private readonly string _connectionString;
         private readonly IParseCsvService _parseCsvService;
         private readonly IConvertToExcelService _convertToExcelService;
+        private readonly ITimeZoneService _timeZoneService;
 
-        public TransactionService(IConfiguration configuration, IParseCsvService parseCsvService, IConvertToExcelService convertToExcelService)
+        public TransactionService(IConfiguration configuration, IParseCsvService parseCsvService, IConvertToExcelService convertToExcelService, ITimeZoneService timeZoneService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
             _parseCsvService = parseCsvService;
             _convertToExcelService = convertToExcelService;
+            _timeZoneService = timeZoneService;
         }
 
         public async Task ImportTransactionsAsync(IFormFile file)
@@ -98,11 +100,9 @@ namespace TransactionAPI.Services
                 if (existingTransaction == null)
                 {
                     throw new TransactionNotFoundException();
-                }
-            
-                var excelDocumentBytes = _convertToExcelService.ConvertTransactionToExcel(existingTransaction);
+                }           
 
-                return excelDocumentBytes;
+                return _convertToExcelService.ConvertTransactionToExcel(existingTransaction);
             }
         }
 
