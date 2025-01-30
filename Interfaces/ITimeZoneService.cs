@@ -2,6 +2,7 @@
 {
     public interface ITimeZoneService
     {
-        string GetIanaTimeZone(double latitude, double longitude);
+        string GetIanaTimeZoneFromLocation(string location);
+        DateTime ConvertToTimeZone(DateTime dateTime, string sourceIana, string targetIana);
     }
 }

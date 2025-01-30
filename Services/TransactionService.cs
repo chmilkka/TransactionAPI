@@ -1,9 +1,5 @@
 ﻿using Dapper;
-using GeoTimeZone;
 using Microsoft.Data.SqlClient;
-using System;
-using System.Globalization;
-using TimeZoneConverter;
 using TransactionAPI.Exceptions;
 using TransactionAPI.Extensions;
 using TransactionAPI.Interfaces;
@@ -162,13 +158,8 @@ namespace TransactionAPI.Services
         }
 
         public async Task<IEnumerable<Transaction>> GetTransactionsByDateRangeWithClientTimezoneAsync(DateTime startDate, DateTime endDate, string clientLocation)
-        {
-            var clientLocationParts = clientLocation.Split(',');
-
-            double latitude = double.Parse(clientLocationParts[0], CultureInfo.InvariantCulture);
-            double longitude = double.Parse(clientLocationParts[1], CultureInfo.InvariantCulture);
-
-            var clientIanaTimezone = _timeZoneService.GetIanaTimeZone(latitude, longitude);
+        {        
+            var clientIanaTimezone = _timeZoneService.GetIanaTimeZoneFromLocation(clientLocation);
 
             DateTime expandedStartDate = startDate.AddHours(-24);
             DateTime expandedEndDate = endDate.AddHours(24);
@@ -177,18 +168,11 @@ namespace TransactionAPI.Services
 
             foreach (var transaction in expandedTransactions)
             {
-                var transactionClientLocationParts = transaction.ClientLocation.Split(',');
-
-                double transactionLatitude = double.Parse(transactionClientLocationParts[0], CultureInfo.InvariantCulture);
-                double transactionLongitude = double.Parse(transactionClientLocationParts[1], CultureInfo.InvariantCulture);
-                string transactionIanaTimeZone = _timeZoneService.GetIanaTimeZone(transactionLatitude, transactionLongitude);
+                var transactionIanaTimeZone = _timeZoneService.GetIanaTimeZoneFromLocation(transaction.ClientLocation);
 
                 if (transactionIanaTimeZone != clientIanaTimezone)
-                {
-                    TimeZoneInfo sourceZone = TZConvert.GetTimeZoneInfo(transactionIanaTimeZone);
-                    TimeZoneInfo targetZone = TZConvert.GetTimeZoneInfo(clientIanaTimezone);
-
-                    transaction.TransactionDate = TimeZoneInfo.ConvertTime(transaction.TransactionDate, sourceZone, targetZone);
+                {                  
+                    transaction.TransactionDate = _timeZoneService.ConvertToTimeZone(transaction.TransactionDate, transactionIanaTimeZone, clientIanaTimezone);
                 }
             }
 
