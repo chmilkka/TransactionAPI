@@ -8,5 +8,6 @@ namespace TransactionAPI.Interfaces
         Task<byte[]> ExportTransactionToExcelAsync(string transactionId);
         Task<IEnumerable<Transaction>> GetJanuaryTransactionsAsync();
         Task<IEnumerable<Transaction>> GetTransactionsByDateRangeAsync(DateTime startDate, DateTime endDate);
+        Task<IEnumerable<Transaction>> GetTransactionsByDateRangeWithClientTimezoneAsync(DateTime startDate, DateTime endDate, string clientLocation);
     }
 }

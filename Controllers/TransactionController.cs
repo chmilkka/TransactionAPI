@@ -38,5 +38,12 @@ namespace TransactionAPI.Controllers
             var transactions = await transactionService.GetTransactionsByDateRangeAsync(startDate, endDate);
             return Ok(transactions);
         }
+
+        [HttpGet("range-with-client-timezone")]
+        public async Task<IActionResult> GetTransactionsByDateRangeWithClientTimezone([FromQuery] DateTime startDate, [FromQuery] DateTime endDate, [FromQuery] string clientLocation)
+        {
+            var transactions = await transactionService.GetTransactionsByDateRangeWithClientTimezoneAsync(startDate, endDate, clientLocation);
+            return Ok(transactions);
+        }
     }
 }

@@ -2,6 +2,6 @@
 {
     public interface ITimeZoneService
     {
-        string GetIanaTimeZoneAsync(double latitude, double longitude);
+        string GetIanaTimeZone(double latitude, double longitude);
     }
 }
