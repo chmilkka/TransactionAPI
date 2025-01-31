@@ -1,6 +1,7 @@
 
 using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
+using System.Reflection;
 using TransactionAPI.Data;
 using TransactionAPI.Interfaces;
 using TransactionAPI.Services;
@@ -28,7 +29,19 @@ namespace TransactionAPI
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            builder.Services.AddSwaggerGen(options =>
+            {
+                options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+                {
+                    Title = "Transaction API",
+                    Version = "1.0",
+                    Description = "API for managing transactions.",                  
+                });
+
+                var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+                options.IncludeXmlComments(xmlPath);
+            });
 
             var app = builder.Build();
 

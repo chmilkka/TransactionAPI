@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Text.Json;
 using TransactionAPI.Exceptions;
+using TransactionAPI.Models;
 namespace TransactionAPI.Middlewares
 {
     public class ExceptionHandlingMiddleware
@@ -27,7 +28,6 @@ namespace TransactionAPI.Middlewares
         private static Task HandleExceptionAsync(HttpContext context, Exception exception)
         {
             HttpStatusCode status;
-            var stackTrace = string.Empty;
             string message;
 
             var exceptionType = exception.GetType();
@@ -40,13 +40,19 @@ namespace TransactionAPI.Middlewares
             else
             {
                 message = exception.Message;
-                stackTrace = exception.StackTrace;
                 status = HttpStatusCode.InternalServerError;
             }
 
-            var exceptionResult = JsonSerializer.Serialize(new { error = message, stackTrace });
+            var errorResponse = new ErrorResponse
+            {
+                Status = status,
+                Message = message
+            };
+
             context.Response.ContentType = "application/json";
             context.Response.StatusCode = (int)status;
+
+            var exceptionResult = JsonSerializer.Serialize(errorResponse);
 
             return context.Response.WriteAsync(exceptionResult);
         }
