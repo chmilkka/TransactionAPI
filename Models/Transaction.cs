@@ -29,7 +29,9 @@
         /// <summary>
         /// The date and time when the transaction occurred(in client local time).
         /// </summary>
-        public DateTime TransactionDate { get; set; }
+        public DateTimeOffset TransactionDate { get; set; }
+
+        public string ClientTimezone { get; set; }
 
         /// <summary>
         /// Geographical location of the client involved in the transaction.
