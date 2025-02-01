@@ -11,32 +11,40 @@ namespace TransactionAPI.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
-
             modelBuilder.Entity<Transaction>()
                 .Property(t => t.Id)
-                .HasColumnName("transaction_id");
+                .HasColumnName("transaction_id")
+                .HasColumnType("varchar");
 
             modelBuilder.Entity<Transaction>()
                 .Property(t => t.Name)
-                .HasColumnName("name");
+                .HasColumnName("name")
+                .HasColumnType("varchar");
 
             modelBuilder.Entity<Transaction>()
                 .Property(t => t.Email)
-                .HasColumnName("email");
+                .HasColumnName("email")
+                .HasColumnType("varchar");
 
             modelBuilder.Entity<Transaction>()
                 .Property(t => t.Amount)
                 .HasColumnName("amount")
-                .HasColumnType("decimal(18,2)");
+                .HasColumnType("numeric(18,2)");
 
             modelBuilder.Entity<Transaction>()
                 .Property(t => t.TransactionDate)
                 .HasColumnName("transaction_date")
-                .HasColumnType("datetime");
+                .HasColumnType("timestamptz");
+
+            modelBuilder.Entity<Transaction>()
+                .Property(t => t.ClientTimezone)
+                .HasColumnName("client_timezone")
+                .HasColumnType("varchar");
 
             modelBuilder.Entity<Transaction>()
                 .Property(t => t.ClientLocation)
-                .HasColumnName("client_location");
+                .HasColumnName("client_location")
+                .HasColumnType("varchar");
         }
     }
 }
