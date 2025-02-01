@@ -1,5 +1,6 @@
 ﻿using Dapper;
-using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using TransactionAPI.Exceptions;
 using TransactionAPI.Extensions;
 using TransactionAPI.Interfaces;
@@ -29,50 +30,74 @@ namespace TransactionAPI.Services
                 throw new ArgumentNullException("No file uploaded.");
             }
 
-            var transactions = await _parseCsvService.ParseCsvFileAsync(file);
+            var transactionsFromImport = await _parseCsvService.ParseCsvFileAsync(file);
 
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = new NpgsqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
 
-                foreach (var transaction in transactions)
+                foreach (var importTransaction in transactionsFromImport)
                 {
+                    var clientTimezone = _timeZoneService.GetIanaTimeZoneFromLocation(importTransaction.ClientLocation);
+                
+                    var formattedTransactionDate = _timeZoneService.ConvertToUtc(importTransaction.TransactionDate, clientTimezone);
+
                     var findTransactionByIdQuery = @"
                     SELECT transaction_id AS Id, 
                             name AS Name, 
                             email AS Email, 
                             amount AS Amount, 
-                            transaction_date AS TransactionDate, 
+                            transaction_date AS TransactionDate,
+                            client_timezone AS ClientTimezone,
                             client_location AS ClientLocation
-                    FROM Transactions 
+                    FROM ""Transactions""
                     WHERE transaction_id = @Id";
 
                     var insertQuery = @"
-                    INSERT INTO Transactions (transaction_id, name, email, amount, transaction_date, client_location)
-                    VALUES (@Id, @Name, @Email, @Amount, @TransactionDate, @ClientLocation)";
+                    INSERT INTO ""Transactions"" (transaction_id, name, email, amount, transaction_date, client_timezone, client_location)
+                    VALUES (@Id, @Name, @Email, @Amount, CAST(@TransactionDate AS timestamptz),@ClientTimezone, @ClientLocation)";
 
                     var updateQuery = @"
-                    UPDATE Transactions 
+                    UPDATE ""Transactions"" 
                     SET name = @Name,
                         email = @Email, 
                         amount = @Amount,  
-                        transaction_date = @TransactionDate,
+                        transaction_date = CAST(@TransactionDate AS timestamptz),
+                        client_timezone = @ClientTimezone,
                         client_location = @ClientLocation
                     WHERE transaction_id = @Id";
 
-                    var existingTransaction = await connection.QueryFirstOrDefaultAsync<Transaction>(findTransactionByIdQuery, new { Id = transaction.Id });
+                    var existingTransaction = await connection.QueryFirstOrDefaultAsync<Transaction>(findTransactionByIdQuery, new { Id = importTransaction.Id });
 
                     if (existingTransaction == null)
                     {
-                        await connection.ExecuteAsync(insertQuery, transaction);
+                        await connection.ExecuteAsync(insertQuery, new
+                        {
+                            Id = importTransaction.Id,
+                            Name = importTransaction.Name,
+                            Email = importTransaction.Email,
+                            Amount = importTransaction.Amount,
+                            TransactionDate = formattedTransactionDate,
+                            clientTimezone = clientTimezone,
+                            ClientLocation = importTransaction.ClientLocation
+                        });
                     }
-                    else if (existingTransaction.Name != transaction.Name ||
-                        existingTransaction.Email != transaction.Email ||
-                        existingTransaction.Amount != transaction.Amount ||
-                        existingTransaction.TransactionDate != transaction.TransactionDate ||
-                        existingTransaction.ClientLocation != transaction.ClientLocation)
-                    {                      
-                        await connection.ExecuteAsync(updateQuery, transaction);
+                    else if (existingTransaction.Name != importTransaction.Name ||
+                        existingTransaction.Email != importTransaction.Email ||
+                        existingTransaction.Amount != importTransaction.Amount ||
+                        existingTransaction.TransactionDate != formattedTransactionDate ||
+                        existingTransaction.ClientLocation != importTransaction.ClientLocation)
+                    {
+                        await connection.ExecuteAsync(updateQuery, new
+                        {
+                            Id = importTransaction.Id,
+                            Name = importTransaction.Name,
+                            Email = importTransaction.Email,
+                            Amount = importTransaction.Amount,
+                            TransactionDate = formattedTransactionDate,
+                            clientTimezone = clientTimezone,
+                            ClientLocation = importTransaction.ClientLocation
+                        });
                     }
                 }
             }
@@ -80,7 +105,7 @@ namespace TransactionAPI.Services
 
         public async Task<byte[]> ExportTransactionToExcelAsync(string transactionId)
         {
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = new NpgsqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
 
@@ -92,7 +117,7 @@ namespace TransactionAPI.Services
                     amount AS Amount, 
                     transaction_date AS TransactionDate, 
                     client_location AS ClientLocation
-                FROM Transactions 
+                FROM ""Transactions"" 
                 WHERE transaction_id = @Id;";
 
                 var existingTransaction = await connection.QueryFirstOrDefaultAsync<Transaction>(query, new { Id = transactionId });
@@ -108,7 +133,7 @@ namespace TransactionAPI.Services
 
         public async Task<IEnumerable<Transaction>>GetJanuaryTransactionsAsync()
         {
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = new NpgsqlConnection(_connectionString);
             {
                 await connection.OpenAsync();
 
@@ -117,17 +142,22 @@ namespace TransactionAPI.Services
                     transaction_id AS Id, 
                     name AS Name, 
                     email AS Email, 
-                    amount AS Amount, 
-                    transaction_date AS TransactionDate, 
+                    amount AS Amount,
+                    (transaction_date AT TIME ZONE client_timezone AT TIME ZONE 'UTC') AS TransactionDate, 
+                    client_timezone AS ClientTimezone,
                     client_location AS ClientLocation
-                FROM Transactions
-                WHERE transaction_date >= @StartDate 
-                    AND transaction_date <= @EndDate";
+                FROM 
+                    ""Transactions""
+                WHERE                    
+                    transaction_date AT TIME ZONE client_timezone AT TIME ZONE 'UTC'
+                    BETWEEN @StartDate AND @EndDate;";
+
+
 
                 var parameters = new
                 {
                     StartDate = new DateTime(2024, 1, 1, 0, 0, 0),
-                    EndDate = new DateTime(2024, 2, 1, 0, 0, 0)
+                    EndDate = new DateTime(2024, 1, 31, 23, 59, 59)
                 };
 
                 return await connection.QueryAsync<Transaction>(query, parameters);
@@ -136,7 +166,7 @@ namespace TransactionAPI.Services
 
         public async Task<IEnumerable<Transaction>> GetTransactionsByDateRangeAsync(DateTime requestStartDate, DateTime requestEndDate)
         {
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = new NpgsqlConnection(_connectionString);
             {
                 await connection.OpenAsync();
 
@@ -145,38 +175,52 @@ namespace TransactionAPI.Services
                     transaction_id AS Id, 
                     name AS Name, 
                     email AS Email, 
-                    amount AS Amount, 
-                    transaction_date AS TransactionDate, 
+                    amount AS Amount,
+                    (transaction_date AT TIME ZONE client_timezone AT TIME ZONE 'UTC') AS TransactionDate, 
+                    client_timezone AS ClientTimezone,
                     client_location AS ClientLocation
-                FROM Transactions 
-                WHERE 
-                    FORMAT(transaction_date, 'yyyy-MM-dd HH:mm:ss') >= @StartDate 
-                    AND FORMAT(transaction_date, 'yyyy-MM-dd HH:mm:ss') <= @EndDate;";
+                FROM 
+                    ""Transactions""
+                WHERE                    
+                    transaction_date AT TIME ZONE client_timezone AT TIME ZONE 'UTC'
+                    BETWEEN @StartDate AND @EndDate;";
 
-                return await connection.QueryAsync<Transaction>(query, new { StartDate = requestStartDate.ToDatabaseDateTimeFormat(), EndDate = requestEndDate.ToDatabaseDateTimeFormat() });
+                return await connection.QueryAsync<Transaction>(query, new { StartDate = requestStartDate, EndDate = requestEndDate });
             }              
         }
 
         public async Task<IEnumerable<Transaction>> GetTransactionsByDateRangeWithClientTimezoneAsync(DateTime startDate, DateTime endDate, string clientLocation)
-        {        
-            var clientIanaTimezone = _timeZoneService.GetIanaTimeZoneFromLocation(clientLocation);
-
-            DateTime expandedStartDate = startDate.AddHours(-24);
-            DateTime expandedEndDate = endDate.AddHours(24);
-
-            var expandedTransactions = await GetTransactionsByDateRangeAsync(expandedStartDate, expandedEndDate);
-
-            foreach (var transaction in expandedTransactions)
+        {
+            using var connection = new NpgsqlConnection(_connectionString);
             {
-                var transactionIanaTimeZone = _timeZoneService.GetIanaTimeZoneFromLocation(transaction.ClientLocation);
+                var clientIanaTimezone = _timeZoneService.GetIanaTimeZoneFromLocation(clientLocation);
 
-                if (transactionIanaTimeZone != clientIanaTimezone)
-                {                  
-                    transaction.TransactionDate = _timeZoneService.ConvertToTimeZone(transaction.TransactionDate, transactionIanaTimeZone, clientIanaTimezone);
-                }
-            }
+                var query = @"
+                SELECT 
+                    transaction_id AS Id, 
+                    name AS Name, 
+                    email AS Email, 
+                    amount AS Amount,
+                    (transaction_date AT TIME ZONE @UserTimeZone AT TIME ZONE 'UTC') AS TransactionDate, 
+                    client_timezone AS ClientTimezone,
+                    client_location AS ClientLocation
+                FROM 
+                    ""Transactions""
+                WHERE                    
+                    transaction_date AT TIME ZONE @UserTimeZone AT TIME ZONE 'UTC'
+                    BETWEEN @StartDate AND @EndDate;";
 
-            return expandedTransactions.Where(t => t.TransactionDate >= startDate && t.TransactionDate <= endDate);
+                var transactions = await connection.QueryAsync<Transaction>(
+                query,
+                new
+                {
+                    StartDate = startDate,
+                    EndDate = endDate,
+                    UserTimeZone = clientIanaTimezone
+                });
+                
+                return transactions;
+            }           
         }
     }
 }

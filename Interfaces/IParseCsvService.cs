@@ -4,6 +4,6 @@ namespace TransactionAPI.Interfaces
 {
     public interface IParseCsvService
     {
-        Task<List<Transaction>> ParseCsvFileAsync(IFormFile file);
+        Task<List<TransactionFromImport>> ParseCsvFileAsync(IFormFile file);
     }
 }

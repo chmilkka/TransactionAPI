@@ -1,4 +1,5 @@
 ﻿using GeoTimeZone;
+using NodaTime;
 using System.Globalization;
 using TimeZoneConverter;
 using TransactionAPI.Interfaces;
@@ -17,14 +18,19 @@ namespace TransactionAPI.Services
             var timeZone = TimeZoneLookup.GetTimeZone(latitude, longitude);
 
             return timeZone.Result ?? throw new Exception("Failed to get time zone.");
-        }
+        }           
 
-        public DateTime ConvertToTimeZone(DateTime dateTime, string sourceIana, string targetIana)
+        public DateTime ConvertToUtc(DateTime dateTime, string timeZoneId)
         {
-            TimeZoneInfo sourceZone = TZConvert.GetTimeZoneInfo(sourceIana);
-            TimeZoneInfo targetZone = TZConvert.GetTimeZoneInfo(targetIana);
+            var timeZone = DateTimeZoneProviders.Tzdb[timeZoneId];
 
-            return TimeZoneInfo.ConvertTime(dateTime, sourceZone, targetZone);
+            var localDateTime = new LocalDateTime(dateTime.Year, dateTime.Month, dateTime.Day, dateTime.Hour, dateTime.Minute, dateTime.Second);
+
+            var zonedDateTime = timeZone.AtLeniently(localDateTime);
+
+            var utcDateTime = DateTime.SpecifyKind(zonedDateTime.ToInstant().ToDateTimeUtc(), DateTimeKind.Utc);
+
+            return utcDateTime;
         }
     }
 }

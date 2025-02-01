@@ -1,6 +1,4 @@
-﻿using Azure;
-using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using TransactionAPI.Interfaces;
 using TransactionAPI.Models;
 
