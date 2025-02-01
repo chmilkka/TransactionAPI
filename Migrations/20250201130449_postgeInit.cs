@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace TransactionAPI.Migrations
 {
     /// <inheritdoc />
-    public partial class Initial : Migration
+    public partial class postgeInit : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -15,12 +15,12 @@ namespace TransactionAPI.Migrations
                 name: "Transactions",
                 columns: table => new
                 {
-                    transaction_id = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    name = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    email = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    amount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    transaction_date = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    client_location = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                    transaction_id = table.Column<string>(type: "varchar", nullable: false),
+                    name = table.Column<string>(type: "varchar", nullable: false),
+                    email = table.Column<string>(type: "varchar", nullable: false),
+                    amount = table.Column<decimal>(type: "numeric(18,2)", nullable: false),
+                    transaction_date = table.Column<DateTimeOffset>(type: "timestamptz", nullable: false),
+                    client_location = table.Column<string>(type: "varchar", nullable: false)
                 },
                 constraints: table =>
                 {

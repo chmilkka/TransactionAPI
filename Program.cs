@@ -18,7 +18,7 @@ namespace TransactionAPI
 
             // Add services to the container.
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+                options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             builder.Services.AddScoped<ITransactionService, TransactionService>();
             builder.Services.AddScoped<IParseCsvService, ParseCsvService>();
