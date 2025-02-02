@@ -69,35 +69,24 @@ namespace TransactionAPI.Services
 
                     var existingTransaction = await connection.QueryFirstOrDefaultAsync<Transaction>(findTransactionByIdQuery, new { Id = importTransaction.Id });
 
+                    var parametersForTransaction = new
+                    {
+                        importTransaction.Id,
+                        importTransaction.Name,
+                        importTransaction.Email,
+                        importTransaction.Amount,
+                        formattedTransactionDate,
+                        clientTimezone,
+                        importTransaction.ClientLocation
+                    };
+
                     if (existingTransaction == null)
                     {
-                        await connection.ExecuteAsync(insertQuery, new
-                        {
-                            Id = importTransaction.Id,
-                            Name = importTransaction.Name,
-                            Email = importTransaction.Email,
-                            Amount = importTransaction.Amount,
-                            TransactionDate = formattedTransactionDate,
-                            clientTimezone = clientTimezone,
-                            ClientLocation = importTransaction.ClientLocation
-                        });
+                        await connection.ExecuteAsync(insertQuery, parametersForTransaction);
                     }
-                    else if (existingTransaction.Name != importTransaction.Name ||
-                        existingTransaction.Email != importTransaction.Email ||
-                        existingTransaction.Amount != importTransaction.Amount ||
-                        existingTransaction.TransactionDate != formattedTransactionDate ||
-                        existingTransaction.ClientLocation != importTransaction.ClientLocation)
+                    else if (HasTransactionChanged(existingTransaction, importTransaction, formattedTransactionDate))
                     {
-                        await connection.ExecuteAsync(updateQuery, new
-                        {
-                            Id = importTransaction.Id,
-                            Name = importTransaction.Name,
-                            Email = importTransaction.Email,
-                            Amount = importTransaction.Amount,
-                            TransactionDate = formattedTransactionDate,
-                            clientTimezone = clientTimezone,
-                            ClientLocation = importTransaction.ClientLocation
-                        });
+                        await connection.ExecuteAsync(updateQuery, parametersForTransaction);                      
                     }
                 }
             }
@@ -222,5 +211,12 @@ namespace TransactionAPI.Services
                 return transactions;
             }           
         }
-    }
+
+        private bool HasTransactionChanged(Transaction existing, TransactionFromImport imported, DateTime formattedDate) =>
+            existing.Name != imported.Name ||
+            existing.Email != imported.Email ||
+            existing.Amount != imported.Amount ||
+            existing.TransactionDate != formattedDate ||
+            existing.ClientLocation != imported.ClientLocation;
+        }
 }
